@@ -1,0 +1,5 @@
+venv
+.idea
+utils/.idea
+model/.idea
+data
