@@ -77,14 +77,15 @@ def load_data(images, batch_size, batch_index, split='train'):
             y = img_array
         else:
             y = np.concatenate((y, img_array), axis=0)
-    return np.random.normal(size=(batch_size, 100)), y
+    return np.random.normal(size=(batch_size, 100)).astype('float32'), y.astype('float32')
 
 
 def iterate_minibatches(batch_size, split='train'):
     images = glob.glob(PATH + "/*.jpg")
-    l = len(images)
+    #l = len(images)
+    l = 170000
     for idx in range(0, l // batch_size):
 
-        inputs, targets = load_data(images, batch_size, idx, split=split)
+        z, targets = load_data(images, batch_size, idx, split=split)
 
-        yield inputs, targets
+        yield z, targets
