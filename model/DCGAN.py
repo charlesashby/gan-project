@@ -12,9 +12,7 @@ class DCGAN(object):
         # X is of shape ('b', 'sentence_length', 'max_word_length', 'alphabet_size')
         self.hparams = self.get_hparams()
         max_word_length = self.hparams['max_word_length']
-        self.z = tf.placeholder('float32', shape=[None, self.hparams['z_size']], name='Z')
-        self.images = tf.placeholder('float32', shape=[None, self.hparams['im_height'],
-                                                  self.hparams['im_width'], 3], name='Y')
+
         self.output_height = self.hparams['im_height']
         self.output_width = self.hparams['im_width']
         self.batch_size = self.hparams['batch_size']
@@ -24,6 +22,10 @@ class DCGAN(object):
         self.learning_rate = self.hparams['learning_rate']
         self.beta1 = self.hparams['beta1']
         self.epoch = self.hparams['epoch']
+
+        self.z = tf.placeholder('float32', shape=[self.batch_size, self.hparams['z_size']], name='Z')
+        self.images = tf.placeholder('float32', shape=[self.batch_size, self.hparams['im_height'],
+                                                  self.hparams['im_width'], 3], name='images')
 
 
     def build(self):
@@ -87,6 +89,8 @@ class DCGAN(object):
             batch = 1
             batch_idxs = 170000 / self.batch_size
             start_time = time.time()
+            images_path = glob.glob(PATH + "/*.jpg")
+            #self.saver.restore(sess, './checkpoints/dcgan-26001/dcgan')
 
             while epoch <= self.epoch and not done:
                 for mini_batch in iterate_minibatches(self.batch_size, split='train'):
@@ -115,9 +119,20 @@ class DCGAN(object):
                           % (epoch, self.epoch, batch, batch_idxs,
                              time.time() - start_time, errD_fake + errD_real, errG))
 
+                    if batch % 100 == 1:
+                        #try:
+                        samples_z, samples_images = load_data(images_path, 64, 1, split='test')
+                        samples = sess.run([self.G], feed_dict={ self.z: samples_z})
+                        save_images(samples[0], str(batch))
+
+                    if batch % 1000 == 1:
+                        self.saver.save(sess, './checkpoints/dcgan-%s/dcgan' % batch)
+                    #except:
+                        #    print("one pic error!...")
+
     def generator(self, z):
 
-        with tf.variable.scope("generator") as scope:
+        with tf.variable_scope("generator") as scope:
 
             # Compute the necessary kernel sizes to have
             # an image output of shape:
@@ -167,8 +182,9 @@ class DCGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
+            #import pdb; pdb.set_trace()
 
+            h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
             self.d_bn1 = batch_norm(name='d_bn1')
             h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))
 
@@ -180,6 +196,14 @@ class DCGAN(object):
             h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h4_lin')
 
             return tf.nn.sigmoid(h4), h4
+
+    def restore(self):
+        images_path = glob.glob(PATH + "/*.jpg")
+        with tf.Session() as sess:
+            self.saver.restore(sess, './checkpoints/dcgan-101/dcgan')
+            samples_z, samples_images = load_data(images_path, 64, 1, split='test')
+            samples = sess.run([self.G], feed_dict={self.z: samples_z})
+            save_images(samples[0], str(1))
 
     def get_hparams(self):
         """ Get hyper-parameters """

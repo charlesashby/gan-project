@@ -10,6 +10,64 @@ img_test = '000001.jpg'
 img_test_path = os.path.join(PATH, img_test)
 
 
+def crop(image):
+    image = scipy.misc.imresize(image, [128, 128])
+    h, w = image.shape[:2]
+    j = int(round((h - 64) / 2.))
+    i = int(round((w - 64) / 2.))
+    return image[j:j + 64, i: i + 64]
+
+
+def save_images(images, name):
+    # images are tensor of shape [b, 64, 64, 3]
+    images = (images + 1.) * 127.5
+    image = images[0].astype('uint8')
+    image = Image.fromarray(image, 'RGB')
+    image.save('./samples/batch-%s.jpg' % name)
+
+
+def inverse_transform(images):
+    return (images+1.)/2.
+
+
+#def save_images(images, size, image_path):
+ #   return imsave(inverse_transform(images), size, image_path)
+
+
+def image_manifold_size(num_images):
+    manifold_h = int(np.floor(np.sqrt(num_images)))
+    manifold_w = int(np.ceil(np.sqrt(num_images)))
+    assert manifold_h * manifold_w == num_images
+    return manifold_h, manifold_w
+
+
+def merge(images, size):
+  h, w = images.shape[1], images.shape[2]
+  if (images.shape[3] in (3,4)):
+    c = images.shape[3]
+    img = np.zeros((h * size[0], w * size[1], c))
+    for idx, image in enumerate(images):
+      i = idx % size[1]
+      j = idx // size[1]
+      img[j * h:j * h + h, i * w:i * w + w, :] = image
+    return img
+  elif images.shape[3]==1:
+    img = np.zeros((h * size[0], w * size[1]))
+    for idx, image in enumerate(images):
+      i = idx % size[1]
+      j = idx // size[1]
+      img[j * h:j * h + h, i * w:i * w + w] = image[:,:,0]
+    return img
+  else:
+    raise ValueError('in merge(images,size) images parameter '
+                     'must have dimensions: HxW or HxWx3 or HxWx4')
+
+
+def imsave(images, size, path):
+  image = np.squeeze(merge(images, size))
+  return scipy.misc.imsave(path, image)
+
+
 def imread(path, grayscale = False):
     if (grayscale):
         return scipy.misc.imread(path, flatten=True).astype(np.float)
@@ -70,7 +128,7 @@ def load_data(images, batch_size, batch_index, split='train'):
         img_array = np.array(img)
         img_array = transform(img_array, input_height=img_array.shape[0],
                               input_width=img_array.shape[1],
-                              crop=False)
+                              crop=True)
         img_array = np.expand_dims(img_array, axis=0)
 
         if i == 0:
