@@ -5,8 +5,8 @@ from lib.images import *
 import time
 
 
-class DCGAN(object):
-    """ DCGAN Implementation """
+class WGAN(object):
+    """ WGAN Implementation """
 
     def __init__(self):
         # X is of shape ('b', 'sentence_length', 'max_word_length', 'alphabet_size')
@@ -37,9 +37,37 @@ class DCGAN(object):
         self.D, self.D_logits = self.discriminator(self.images, reuse=False)
         self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
 
+        self.true_logit = self.D
+        self.fake_logit = self.D_
+        self.c_loss = tf.reduce_mean(self.fake_logit - self.true_logit)
+
+        # WGAN-GP
+        alpha_dist = tf.contrib.distributions.Uniform(low=0., high=1.)
+        alpha = alpha_dist.sample((self.batch_size, 1, 1, 1))
+        interpolated = self.images + alpha * (self.G - self.images)
+        inte_logit = self.discriminator(interpolated, reuse=True)
+        gradients = tf.gradients(inte_logit, [interpolated,])[0]
+        grad_l2 = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
+        gradient_penalty = tf.reduce_mean((grad_l2-1)**2)
+        gp_loss_sum = tf.summary.scalar("gp_loss", gradient_penalty)
+        grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
+        self.c_loss += self.hparams['lam'] * gradient_penalty
+
+        self.g_loss = tf.reduce_mean(- self.fake_logit)
+        self.g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
+        self.c_loss_sum = tf.summary.scalar("c_loss", self.c_loss)
+
+        self.img_sum = tf.summary.image("img", self.G, max_outputs=10)
+        theta_g = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
+        theta_c = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope='critic')
+        counter_g = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+
         self.d_sum = histogram_summary('d', self.D)
         self.d__sum = histogram_summary('d_', self.D_)
         self.g_sum = histogram_summary('g', self.G)
+
 
         def sigmoid_cross_entropy_with_logits(x, y):
             try:
@@ -126,7 +154,7 @@ class DCGAN(object):
                         save_images(samples[0], str(batch))
 
                     if batch % 1000 == 1:
-                        self.saver.save(sess, './checkpoints/dcgan-%s/dcgan' % batch)
+                        self.saver.save(sess, './checkpoints/wgan-%s/wgan' % batch)
                     #except:
                         #    print("one pic error!...")
 
@@ -200,7 +228,7 @@ class DCGAN(object):
     def restore(self):
         images_path = glob.glob(PATH + "/*.jpg")
         with tf.Session() as sess:
-            self.saver.restore(sess, './checkpoints/dcgan-101/dcgan')
+            self.saver.restore(sess, './checkpoints/wgan-101/dcgan')
             samples_z, samples_images = load_data(images_path, 64, 1, split='test')
             samples = sess.run([self.G], feed_dict={self.z: samples_z})
             save_images(samples[0], str(1))
@@ -219,6 +247,9 @@ class DCGAN(object):
 
             # beta param (momentum term) for adam
             'beta1':            0.5,
+
+            # WGAN GP lambda param
+            'lam':              10.,
             'im_height':        64,
             'im_width':         64,
             'z_size':           100,

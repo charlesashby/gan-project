@@ -15,7 +15,9 @@ def crop(image):
     h, w = image.shape[:2]
     j = int(round((h - 64) / 2.))
     i = int(round((w - 64) / 2.))
-    return image[j:j + 64, i: i + 64]
+    cropped_img = image[j:j + 64, i: i + 64]
+    img = cropped_img /127.5 - 1.
+    return img
 
 
 def save_images(images, name):
@@ -126,9 +128,7 @@ def load_data(images, batch_size, batch_index, split='train'):
     for i, image in enumerate(batch_imgs):
         img = Image.open(image)
         img_array = np.array(img)
-        img_array = transform(img_array, input_height=img_array.shape[0],
-                              input_width=img_array.shape[1],
-                              crop=True)
+        img_array = crop(img_array)
         img_array = np.expand_dims(img_array, axis=0)
 
         if i == 0:
