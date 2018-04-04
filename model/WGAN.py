@@ -27,9 +27,8 @@ class WGAN(object):
         self.images = tf.placeholder('float32', shape=[self.batch_size, self.hparams['im_height'],
                                                   self.hparams['im_width'], 3], name='images')
 
-
     def build(self):
-
+        print('Building WGAN')
         # visualization Z variables
         self.z_sum = histogram_summary("z", self.z)
 
@@ -37,9 +36,8 @@ class WGAN(object):
         self.D, self.D_logits = self.discriminator(self.images, reuse=False)
         self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
 
-        self.true_logit = self.D
-        self.fake_logit = self.D_
-        self.c_loss = tf.reduce_mean(self.fake_logit - self.true_logit)
+
+        self.c_loss = tf.reduce_mean(self.D - self.D_)
 
         # WGAN-GP
         alpha_dist = tf.contrib.distributions.Uniform(low=0., high=1.)
@@ -53,60 +51,36 @@ class WGAN(object):
         grad = tf.summary.scalar("grad_norm", tf.nn.l2_loss(gradients))
         self.c_loss += self.hparams['lam'] * gradient_penalty
 
-        self.g_loss = tf.reduce_mean(- self.fake_logit)
+        self.g_loss = tf.reduce_mean(- self.D_)
         self.g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         self.c_loss_sum = tf.summary.scalar("c_loss", self.c_loss)
 
         self.img_sum = tf.summary.image("img", self.G, max_outputs=10)
-        theta_g = tf.get_collection(
+        self.theta_g = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope='generator')
-        theta_c = tf.get_collection(
-            tf.GraphKeys.TRAINABLE_VARIABLES, scope='critic')
-        counter_g = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+        self.theta_c = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, scope='discriminator')
+        print('Done building WGAN')
 
-        self.d_sum = histogram_summary('d', self.D)
-        self.d__sum = histogram_summary('d_', self.D_)
-        self.g_sum = histogram_summary('g', self.G)
-
-
-        def sigmoid_cross_entropy_with_logits(x, y):
-            try:
-                return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
-            except:
-                return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, targets=y)
-
-        self.d_loss_real = tf.reduce_mean(
-            sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
-        self.d_loss_fake = tf.reduce_mean(
-            sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
-        self.g_loss = tf.reduce_mean(
-            sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-
-        self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
-        self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
-
-        self.d_loss = self.d_loss_real + self.d_loss_fake
-
-        self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
-        self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
-
-        t_vars = tf.trainable_variables()
-
-        self.d_vars = [var for var in t_vars if 'd_' in var.name]
-        self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver()
 
     def train(self):
-        d_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta1) \
-            .minimize(self.d_loss, var_list=self.d_vars)
-        g_optim = tf.train.AdamOptimizer(self.learning_rate, beta1=self.beta1) \
-            .minimize(self.g_loss, var_list=self.g_vars)
 
-        self.g_sum = merge_summary([self.z_sum, self.d__sum,
-                                    self.g_sum, self.d_loss_fake_sum, self.g_loss_sum])
-        self.d_sum = merge_summary(
-            [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
+        counter_g = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+
+        opt_g = tf.contrib.layers.optimize_loss(loss=self.g_loss, learning_rate=self.learning_rate,
+                                 optimizer=tf.train.AdamOptimizer(beta1=0.5, beta2=0.9),
+                                 variables=self.theta_g, global_step=counter_g,
+                                 summaries=['gradient_norm'])
+
+        counter_c = tf.Variable(trainable=False, initial_value=0, dtype=tf.int32)
+        opt_c = tf.contrib.layers.optimize_loss(loss=self.c_loss, learning_rate=self.learning_rate,
+                                 optimizer=tf.train.AdamOptimizer(beta1=0.5, beta2=0.9),
+                                 variables=self.theta_c, global_step=counter_c,
+                                 summaries=['gradient_norm'])
+        merged_all = tf.summary.merge_all()
+        print('Training')
 
         with tf.Session() as sess:
             sess.run(tf.initialize_all_variables())
@@ -120,43 +94,49 @@ class WGAN(object):
             images_path = glob.glob(PATH + "/*.jpg")
             # self.saver.restore(sess, './checkpoints/dcgan-11001/dcgan')
 
-            while epoch <= self.epoch and not done:
-                for mini_batch in iterate_minibatches(self.batch_size, split='train'):
-                    batch_z, batch_images = mini_batch
-                    # Update D network
-                    _, summary_str = sess.run([d_optim, self.d_sum],
-                                                   feed_dict={self.images: batch_images, self.z: batch_z})
-                    self.writer.add_summary(summary_str, batch)
+            for epoch in range(500):
+                i = 0
+                while i <= batch_idxs and not done:
 
-                    # Update G network
-                    _, summary_str = sess.run([g_optim, self.g_sum],
-                                                   feed_dict={self.z: batch_z})
-                    self.writer.add_summary(summary_str, batch)
+                    minibatches = iterate_minibatches(self.batch_size, split='train')
+                    if i < 25 or i % 500 == 0:
+                        citers = 100
+                    else:
+                        citers = 5
 
-                    # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
-                    _, summary_str = sess.run([g_optim, self.g_sum],
-                                                   feed_dict={self.z: batch_z})
-                    self.writer.add_summary(summary_str, batch)
+                    for j in range(citers):
+                        batch_z, batch_images = next(minibatches)
 
-                    errD_fake = self.d_loss_fake.eval({self.z: batch_z})
-                    errD_real = self.d_loss_real.eval({self.images: batch_images})
-                    errG = self.g_loss.eval({self.z: batch_z})
+                        if i % 100 == 99 and j == 0:
+                            run_options = tf.RunOptions(
+                                trace_level=tf.RunOptions.FULL_TRACE)
+                            run_metadata = tf.RunMetadata()
+                            _, merged = sess.run([opt_c, merged_all], feed_dict={self.images: batch_images, self.z: batch_z},
+                                                 options=run_options, run_metadata=run_metadata)
+                            self.writer.add_summary(merged, i)
+                            self.writer.add_run_metadata(
+                                run_metadata, 'critic_metadata {}'.format(i), i)
+                        else:
+                            sess.run(opt_c, feed_dict={self.images: batch_images, self.z: batch_z})
+                        feed_dict = next(minibatches)
+                        if i % 100 == 99:
+                            _, merged = sess.run([opt_g, merged_all], feed_dict={self.images: batch_images, self.z: batch_z},
+                                                 options=run_options, run_metadata=run_metadata)
+                            self.writer.add_summary(merged, i)
+                            self.writer.add_run_metadata(
+                                run_metadata, 'generator_metadata {}'.format(i), i)
+                        else:
+                            sess.run(opt_g, feed_dict=feed_dict)
+                        if i % 1000 == 999:
+                            self.saver.save(sess, './checkpoints/wgan-%s/wgan' % str(i * epoch))
 
-                    batch += 1
-                    print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
-                          % (epoch, self.epoch, batch, batch_idxs,
-                             time.time() - start_time, errD_fake + errD_real, errG))
+                        if i % 100 == 1:
+                            #try:
+                            samples_z, samples_images = load_data(images_path, 64, 1, split='test')
+                            samples = sess.run([self.G], feed_dict={ self.z: samples_z})
+                            save_images(samples[0], str(batch))
 
-                    if batch % 100 == 1:
-                        #try:
-                        samples_z, samples_images = load_data(images_path, 64, 1, split='test')
-                        samples = sess.run([self.G], feed_dict={ self.z: samples_z})
-                        save_images(samples[0], str(batch))
 
-                    if batch % 1000 == 1:
-                        self.saver.save(sess, './checkpoints/wgan-%s/wgan' % batch)
-                    #except:
-                        #    print("one pic error!...")
 
     def generator(self, z):
 
