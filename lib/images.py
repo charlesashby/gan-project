@@ -27,6 +27,12 @@ def save_images(images, name):
     image = Image.fromarray(image, 'RGB')
     image.save('./samples/batch-%s.jpg' % name)
 
+def save_image(image, name):
+    # images are tensor of shape [b, 64, 64, 3]
+    image = (image + 1.) * 127.5
+    image = image.astype('uint8')
+    image = Image.fromarray(image, 'RGB')
+    image.save('./samples/batch-%s.jpg' % name)
 
 def inverse_transform(images):
     return (images+1.)/2.
@@ -138,10 +144,10 @@ def load_data(images, batch_size, batch_index, split='train'):
     return np.random.normal(size=(batch_size, 100)).astype('float32'), y.astype('float32')
 
 
-def iterate_minibatches(batch_size, split='train'):
-    images = glob.glob(PATH + "/*.jpg")
+def iterate_minibatches(batch_size, split='train', n_epochs=500):
+    images = glob.glob(PATH + "/*.jpg") * n_epochs
     #l = len(images)
-    l = 170000
+    l = len(images)
     for idx in range(0, l // batch_size):
 
         z, targets = load_data(images, batch_size, idx, split=split)

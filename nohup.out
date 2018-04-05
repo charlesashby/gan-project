@@ -26944,4 +26944,23 @@ Epoch: [ 0/500] [1091/2656] time: 306.0085, d_loss: 1.43854296, g_loss: 0.590339
 Epoch: [ 0/500] [1092/2656] time: 306.2786, d_loss: 2.11773992, g_loss: 3.67229843
 Epoch: [ 0/500] [1093/2656] time: 306.5488, d_loss: 1.56162119, g_loss: 0.32930285
 Epoch: [ 0/500] [1094/2656] time: 306.8204, d_loss: 0.84375191, g_loss: 2.77671957
-Epoch: [ 0/500] [1095/2656] time: 307.0891, d_loss: 0.83077985, g_loss: 1.12068534
+Epoch: [ 0/500] [1095/2656] time: 307.0891, d_loss: 0.83077985, g_loss: 1.120685342018-04-04 13:04:32.931538: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.1 instructions, but these are available on your machine and could speed up CPU computations.
+2018-04-04 13:04:32.932393: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.2 instructions, but these are available on your machine and could speed up CPU computations.
+2018-04-04 13:04:32.932471: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX instructions, but these are available on your machine and could speed up CPU computations.
+2018-04-04 13:04:32.932485: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX2 instructions, but these are available on your machine and could speed up CPU computations.
+2018-04-04 13:04:32.932491: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use FMA instructions, but these are available on your machine and could speed up CPU computations.
+2018-04-04 13:04:33.054884: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:893] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-04-04 13:04:33.055259: I tensorflow/core/common_runtime/gpu/gpu_device.cc:940] Found device 0 with properties: 
+name: GeForce GTX 1080 Ti
+major: 6 minor: 1 memoryClockRate (GHz) 1.607
+pciBusID 0000:01:00.0
+Total memory: 10.92GiB
+Free memory: 10.76GiB
+2018-04-04 13:04:33.055281: I tensorflow/core/common_runtime/gpu/gpu_device.cc:961] DMA: 0 
+2018-04-04 13:04:33.055288: I tensorflow/core/common_runtime/gpu/gpu_device.cc:971] 0:   Y 
+2018-04-04 13:04:33.055299: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Creating TensorFlow device (/gpu:0) -> (device: 0, name: GeForce GTX 1080 Ti, pci bus id: 0000:01:00.0)
+WARNING:tensorflow:From /home/ashbylepoc/PycharmProjects/gan-tutorial/venv/lib/python3.6/site-packages/tensorflow/python/util/tf_should_use.py:170: initialize_all_variables (from tensorflow.python.ops.variables) is deprecated and will be removed after 2017-03-02.
+Instructions for updating:
+Use `tf.global_variables_initializer` instead.
+2018-04-04 13:04:36.472837: I tensorflow/stream_executor/dso_loader.cc:129] Couldn't open CUDA library libcupti.so.8.0. LD_LIBRARY_PATH: /usr/local/cuda-8.0/lib64 :/usr/local/cuda-8.0/lib64 :/usr/local/cuda-8.0/lib64
+2018-04-04 13:04:36.472868: F ./tensorflow/stream_executor/lib/statusor.h:205] Non-OK-status: status_ status: Failed precondition: could not dlopen DSO: libcupti.so.8.0; dlerror: libcupti.so.8.0: cannot open shared object file: No such file or directory

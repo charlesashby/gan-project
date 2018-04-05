@@ -7,3 +7,5 @@ backup
 checkpoints
 logs
 samples
+nohup.out
+
